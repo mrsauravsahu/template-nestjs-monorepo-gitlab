@@ -1,0 +1,9 @@
+mode: ContinuousDeployment
+# uncomment this to get to first version
+# Note: this is because of a bug because of which +semver: major upgrades only minor versions
+# https://github.com/GitTools/GitVersion/issues/1539
+# next-version: 1.0.0
+ignore:
+  sha: []
+merge-message-formats: {}
+tag-prefix: apps/gateway/v

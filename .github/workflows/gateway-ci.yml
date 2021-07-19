@@ -1,0 +1,82 @@
+name: "gateway: ci"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**'
+      - '!apps/**'
+      - 'apps/gateway/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**'
+      - '!apps/**'
+      - 'apps/gateway/**'
+
+env:
+  SERVICE_NAME: 'gateway'
+  # check if this can be derived with an expression
+  SERVICE_DIR: 'apps/gateway'
+  HOT_BRANCH: 'refs/heads/main'
+  COOL_BRANCH: 'refs/heads/main'
+  NODE_VERSION: "14.17.1"
+
+jobs:
+  build:
+    defaults:
+      run: 
+        shell: bash
+        
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout to branch
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: setup node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: install gitversion
+        uses: gittools/actions/gitversion/setup@v0.9.7
+        with:
+          versionSpec: '5.x'
+
+      - name: execute gitversion
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v0.9.7
+        with:
+          useConfigFile: true
+          configFilePath: ${{ format('apps/{0}/git-version.yml', env.SERVICE_NAME) }}
+
+      - name: install deps
+        run: npm ci
+
+      - name: run unit tests
+        run: npm t
+
+      - name: run e2e tests
+        run: npm run test:e2e
+
+      - name: build docker image
+        run: docker build --build-arg SERVICE_NAME=${{ env.SERVICE_NAME }} -t ${{ env.SERVICE_NAME }}:latest -f dockerfile .
+
+      - name: build docker image tar file
+        run: docker save -o ${{ env.SERVICE_NAME }}.tar ${{ env.SERVICE_NAME }}:latest
+
+      - name: upload artifact
+        if: ${{ github.ref == env.HOT_BRANCH }}
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ env.SERVICE_NAME }}
+          path: ${{ format('{0}.tar', env.SERVICE_NAME) }}
+
+      - name: tag the build
+        if: ${{ github.ref == env.HOT_BRANCH }}
+        run: git tag ${{ format('apps/{0}/v{1}', env.SERVICE_NAME, steps.gitversion.outputs.MajorMinorPatch) }} && git push origin ${{ format('apps/{0}/v{1}', env.SERVICE_NAME, steps.gitversion.outputs.MajorMinorPatch) }}
