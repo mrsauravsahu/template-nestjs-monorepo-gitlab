@@ -1,0 +1,7 @@
+default:
+  image: ubuntu:latest
+
+build-stage:
+  stage: build
+  script: 
+   - for app in `ls -1 apps`; do echo $app; done
